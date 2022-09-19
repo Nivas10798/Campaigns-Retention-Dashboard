@@ -19,7 +19,7 @@ application = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.ico
 
 month = {'1':'January', '2':'February', '3':'March', '4':'April',
          '5':'May', '6':'June', '7':'July', '8':'August', '9':'September',
-         '10':'October', '11':'November', '0':'December'}
+         '10':'October', '11':'November', '0':'December', '12':'December'}
 
 #collecting data
 final_df = pd.read_csv('monthwise_filtered_data.csv')
@@ -32,42 +32,45 @@ wikidb_list = list(final_df.wiki_db.unique())
 application.layout = dbc.Container([
     html.Br(),
     html.H1('Campaigns Retention Metrics Dashboard'),
-    html.P('The dashboard provides number of users who have retained after the end of a photo campaign'),
+    html.P('The dashboard provides information on user retention after the end of a photo campaign'),
     html.Br(),
-    html.H4('Editors who are active in a given time interval after the end of campaign'),
+    html.H4('New editors who are contributing to Wikimedia projects in a selected time period after the end of campaign'),
+    html.P(['1. Below graph provides info on number of editors who are contributing to specific Wikimedia project every month in a selected time frame',html.Br(),
+            '2. To select all Wikimedia projects at once, clear selection in Wikimedia project option by clicking on cross mark',html.Br(),
+            ]),
     dbc.Row([
-        dbc.Col([html.P('Campaign Name'),
+        dbc.Col([html.P('Campaign name'),
                  dcc.Dropdown(id = 'campaign',
                               options = [{'label': c, 'value': c}
-                                         for c in campaign_list], value='WLM')
+                                         for c in campaign_list], value='Wiki Loves Monuments')
                 ]),
-        dbc.Col([html.P('Campaign Year'),
+        dbc.Col([html.P('Campaign year'),
                  dcc.Dropdown(id = 'year',
                               options = [])
                 ]),
-        dbc.Col([html.P('Interval after end of campaign'),
+        dbc.Col([html.P('Time period after end of campaign'),
                  dcc.Dropdown(id = 'interval',
-                              options = [{'label':'3 months', 'value':4}, {'label':'6 months', 'value':7}, {'label':'9 months', 'value':10},
-                                         {'label':'1 year', 'value':13}, {'label':'2 years', 'value':25}, {'label':'3 years', 'value':37}
-                                         ], value=10)
+                              options = [{'label':'3 months', 'value':3}, {'label':'6 months', 'value':6}, {'label':'9 months', 'value':9},
+                                         {'label':'1 year', 'value':12}, {'label':'2 years', 'value':24}, {'label':'3 years', 'value':36}
+                                         ], value=9)
                  ]),
-        dbc.Col([html.P('Wiki Database'),
+        dbc.Col([html.P('Wikimedia Project'),
                  dcc.Dropdown(id = 'wiki_db',
                               options = [])
                 ]),
     ]),
-    html.Div(children=[dcc.Graph(id ='bar_fig')], style = {'width': '100%','marginLeft': 10, 'marginRight': 10, 'marginTop': 10, 'marginBottom': 0,
-           'backgroundColor':'#F7FBFE', 'border': 'thin lightgrey dashed', 'padding': '6px 6px 6px 6px'},),
+    html.Div(children=[dcc.Graph(id ='bar_fig')],),
     html.Br(),
     html.Br(),
-    html.H4('Count of new editors who contributed to country specific categories'),
-    html.Div(children=[dcc.Graph(id ='map_fig')], style = {'width': '100%','marginLeft': 10, 'marginRight': 10, 'marginTop': 10, 'marginBottom': 0,
-           'backgroundColor':'#F7FBFE', 'border': 'thin lightgrey dashed', 'padding': '6px 6px 6px 6px'},),
+    html.H4('Number of new editors who contributed to country specific category during the campaign'),
+    html.P(['Below graph highlights country(s) with number of editors who contributed during the campaign in that country specific Commons category',html.Br(),]),
+    html.Div(children=[dcc.Graph(id ='map_fig')],),
     html.Br(),
     html.Br(),
-    html.H4('Wiki Projects and number of new editors contributing in a selected month'),
+    html.H4('Top 10 Wikimedia projects based on number of new editors from selected campaign'),
+    html.P(['Below table and graph shows list of Wikimedia projects (upto to ten) along with number and percentage of new editors contributing, in a selected month after the end of campaign',html.Br(),]),
     dbc.Row([
-        dbc.Col([html.P('Select a Month and Year'),
+        dbc.Col([html.P('Please select a month and year from the below list'),
                  dcc.Dropdown(id = 'month_year',
                               options = [], style={'width': "70%"}), 
                 ]),
@@ -76,6 +79,14 @@ application.layout = dbc.Container([
         dbc.Col([html.Div(children=[dcc.Graph(id ='table_fig')])]),
         dbc.Col([html.Div(children=[dcc.Graph(id ='pie_fig')])])
     ]),
+    dbc.Row([
+        dbc.Col([
+            html.P('The dashboard is for understanding user rention from three major photo campaigns')
+        ], align="start",),
+        dbc.Col([
+            html.P('Developed and maintained by Jayprakash12345, KCVelaga and Nivas10798')
+        ], align="end")
+    ], justify="end")
     
 ])
 
@@ -118,21 +129,24 @@ def get_monthyear(year, camp):
     value_monthyear = res_monthyear[0]["value"]
     return res_monthyear, value_monthyear
 
+# function for processing the input data
+def prim_fun(final_df, campaign, year):
+    dropdown_df = final_df[(final_df['campaign']==campaign) & (final_df['cohort']==year)]
+    dropdown_df1 = dropdown_df.groupby(['user_name', 'event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db', 'iso_code']).size().reset_index(name='edit_count')
+    dropdown_df1 = dropdown_df1.sort_values(by=['event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db'])
+    return dropdown_df1
+
 # bubblemap function callback
 @application.callback(
     Output("map_fig", "figure"), 
     [Input("campaign", "value"),
     Input("year", "value")])
 def update_bubble_map(campaign, year):
-    dropdown_df = final_df[(final_df['campaign']==campaign) & (final_df['cohort']==year)]
-    dropdown_df1 = dropdown_df.groupby(['user_name', 'event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db', 'iso_code']).size().reset_index(name='edit_count')
-    dropdown_df1 = dropdown_df1.sort_values(by=['event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db'])
+    dropdown_df1 = prim_fun(final_df, campaign, year)
+    
     editors_count_df = dropdown_df1.groupby(['country', 'campaign', 'cohort', 'iso_code']).size().reset_index(name='editors_count')
-    map_fig = px.scatter_geo(editors_count_df, locations="iso_code", color="country", hover_data=["editors_count"],
-                           size="editors_count", projection="orthographic")
-    map_fig.update_geos(projection_type="orthographic", landcolor="white", oceancolor="MidnightBlue", showocean=True, lakecolor="LightBlue")
-    map_fig.update_layout(height=600, title_text = f"Number of new editors who participated by contributing to the highlighted country category in {campaign}, {year}", title_x=0.5)
-    map_fig.update_traces(marker=dict(color="crimson", size=10,line=dict(width=2, color='DarkSlateGrey')), selector=dict(mode='markers'))
+    map_fig = px.choropleth(editors_count_df, locations="iso_code", color="editors_count", hover_name="country", color_continuous_scale=px.colors.sequential.Plasma)
+    map_fig.update_layout(height=600, title_text = f"Number of new editors who participated by contributing to the highlighted country category in {campaign}, {year}", title_x=0.5, coloraxis_showscale=False)
     return map_fig
 
 # table and pie chart function callback
@@ -143,9 +157,8 @@ def update_bubble_map(campaign, year):
     Input("year", "value"),
     Input("month_year","value")])
 def update_table(campaign, year, month_year):
-    dropdown_df = final_df[(final_df['campaign']==campaign) & (final_df['cohort']==year)]
-    dropdown_df1 = dropdown_df.groupby(['user_name', 'event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db', 'iso_code']).size().reset_index(name='edit_count')
-    dropdown_df1 = dropdown_df1.sort_values(by=['event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db'])
+    dropdown_df1 = prim_fun(final_df, campaign, year)
+    
     drop_df = pd.DataFrame(dropdown_df1.groupby(['event_month_number', 'wiki_db']).size().reset_index(name='editors_count'))
     month_map_dict = dict(zip(dropdown_df1.event_month_number, dropdown_df1.event_month_year))
     drop_df['event_month_year'] = drop_df['event_month_number'].map(month_map_dict)
@@ -153,15 +166,18 @@ def update_table(campaign, year, month_year):
     new_df['%_editors_in_current_month'] = (new_df['editors_count']/new_df['editors_count'].sum())*100
     new_df['%_editors_in_current_month'] = new_df['%_editors_in_current_month'].apply(lambda x:round(x,2))
     new_df.reset_index(inplace=True, drop=True)
+    new_df = new_df.rename(columns={'editors_count':'Editors count', '%_editors_in_current_month':'% of active editors in selected project', 'wiki_db':'Wikimedia project'})
 
-    table_fig = go.Figure(data=[go.Table(columnwidth = [25,33,72],
+    table_fig = go.Figure(data=[go.Table(columnwidth = [30,33,68],
         header=dict(values=list(new_df[:10].columns), align='left', fill_color='paleturquoise', font=dict(size=14)),
         cells=dict(values=[new_df[:10][col] for col in new_df[:10].columns], align='left', height=27.5,  fill_color='mintcream', font=dict(size=14)))
     ])
-    table_fig.update_layout(title={'text':f'New users from {campaign} {year} who contributed <br>to various wiki projects (upto 10) in {month_year}','x':0.5,}, height=500, font=dict(size=12))
+    table_fig.update_layout(title={'text':f'Wikimedia projects with highest number of new editors from <br>{campaign} {year} contributing to each project in {month_year}', 'x':0.5}, height=500,
+                            font=dict(size=11))
 
-    pie_fig = px.pie(new_df, values='%_editors_in_current_month', names='wiki_db', title='Pie chart to show the overall editors on possible Wiki projects')
-    pie_fig.update_layout(height=500)
+    pie_fig = px.pie(new_df[:10], values='% of active editors in selected project', names='Wikimedia project', title='Percentage of new editors contributing to a Wikimedia project <br>in the selected month')
+    pie_fig.update_layout(height=500,font=dict(size=11), title_x=0.5)
+    pie_fig.update_traces(textinfo='label+value')
     return [table_fig, pie_fig]    
 
 # bargraph function callback
@@ -172,9 +188,7 @@ def update_table(campaign, year, month_year):
     Input("interval", "value"),
     Input("wiki_db", "value")])
 def update_bar_chart(campaign, year, interval, wiki_db):
-    dropdown_df = final_df[(final_df['campaign']==campaign) & (final_df['cohort']==year)]
-    dropdown_df1 = dropdown_df.groupby(['user_name', 'event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db', 'iso_code']).size().reset_index(name='edit_count')
-    dropdown_df1 = dropdown_df1.sort_values(by=['event_month_number', 'event_month_year', 'country', 'campaign', 'cohort', 'wiki_db'])
+    dropdown_df1 = prim_fun(final_df, campaign, year)
     
     if wiki_db != None:
         dropdown_df2 = dropdown_df1[dropdown_df1['wiki_db']==wiki_db]
@@ -199,22 +213,24 @@ def update_bar_chart(campaign, year, interval, wiki_db):
                 x_list.append(drop_df['event_month_year'][index])
                 y_list.append(drop_df['editors_count'][index])
                 index = index+1
+            elif month[str(int(i_mon))] == drop_df['event_month_year'][index].split('-')[0] and int(i_year) != int(year_check):
+                x_list.append(drop_df['event_month_year'][index])
+                y_list.append(drop_df['editors_count'][index])
+                index = index+1
             else:
                 x_list.append(month[str(int(i_mon))]+'-'+i_year)
                 y_list.append(0)
             i_mon = str((int(i_mon)+1)%12)
-
     except:
         pass
-
-    bar_fig = px.bar(x=x_list, y=y_list, color=y_list)
+    bar_fig = px.bar(x=x_list, y=y_list, color=y_list, color_discrete_map='viridis')
     bar_fig.update_traces(hovertemplate="<br>".join(["Month & Year: %{x}","Number of editors: %{y}",]))
-    bar_fig.update_layout(title_text = f"New editors who are active for {interval-1} months after the end of {campaign}, {year}", title_x=0.5,
+    bar_fig.update_layout(title_text = f"New editors who are active for {interval} months after the end of {campaign}, {year}", title_x=0.5,
                             yaxis=dict(range=[0, max(y_list)+10], title_text="Editors count",
                                      tickmode="array", titlefont=dict(size=12),),
                             xaxis=dict(range=[0, max(x_list)], title_text="Timeline", 
                                      tickmode="array", titlefont=dict(size=12),),
-                            margin=dict(l=20, r=20, b=0, t=100, ),)
+                            margin=dict(l=20, r=20, b=0, t=100,),coloraxis_showscale=False)
     return bar_fig
 
 # running the app
