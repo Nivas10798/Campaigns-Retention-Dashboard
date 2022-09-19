@@ -78,6 +78,8 @@ application.layout = dbc.Container([
     dbc.Row([
         dbc.Col([html.Div(children=[dcc.Graph(id ='table_fig')])]),
         dbc.Col([html.Div(children=[dcc.Graph(id ='pie_fig')])])
+    html.Br(),
+    html.Br(),
     ]),
     dbc.Row([
         dbc.Col([
